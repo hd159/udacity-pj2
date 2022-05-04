@@ -22,7 +22,7 @@ class QuestionView extends Component {
 
   getQuestions = () => {
     $.ajax({
-      url: `/questions?page=${this.state.page}`, //TODO: update request URL
+      url: `http://localhost:5000/questions?page=${this.state.page}&currentCategory=${this.state.currentCategory}`, //TODO: update request URL
       type: 'GET',
       success: (result) => {
         this.setState({
@@ -46,7 +46,8 @@ class QuestionView extends Component {
 
   createPagination() {
     let pageNumbers = [];
-    let maxPage = Math.ceil(this.state.totalQuestions / 10);
+    let maxPage = Math.ceil(this.state.totalQuestions / 2);
+    console.log(maxPage);
     for (let i = 1; i <= maxPage; i++) {
       pageNumbers.push(
         <span
@@ -64,8 +65,9 @@ class QuestionView extends Component {
   }
 
   getByCategory = (id) => {
+
     $.ajax({
-      url: `/categories/${id}/questions`, //TODO: update request URL
+      url: `/categories/${id}/questions?currentCategory=${this.state.categories[id]}`, //TODO: update request URL
       type: 'GET',
       success: (result) => {
         this.setState({
@@ -84,7 +86,7 @@ class QuestionView extends Component {
 
   submitSearch = (searchTerm) => {
     $.ajax({
-      url: `/questions`, //TODO: update request URL
+      url: `/questions/search?currentCategory=${this.state.currentCategory}`, //TODO: update request URL
       type: 'POST',
       dataType: 'json',
       contentType: 'application/json',
