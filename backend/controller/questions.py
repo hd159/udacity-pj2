@@ -1,12 +1,11 @@
-from asyncio.windows_events import NULL
 from flask import abort, jsonify, request
 from flask_cors import cross_origin
 from sqlalchemy import func
 
-from .errors_handling import unprocessable
+from .errors_handling import unprocessable, not_found
 from .categories import mappingCategories
 from . import routes
-from models import Category, db, Question
+from models import Category, Question
 QUESTIONS_PER_PAGE = 2
 
 def mappingQuestions(questions):
@@ -22,29 +21,50 @@ def mappingQuestions(questions):
         result.append(res)
     return result
 
+
+def question_paginate(request, filter):
+   
+    page = request.args.get("page", 1, type=int)
+    offset = (page - 1)*QUESTIONS_PER_PAGE
+    currentCategory = request.args.get("currentCategory", None)
+    res_questions = []
+    totalQuestions = 0
+    if currentCategory == 'null':
+        currentCategory = None
+
+    if (filter != False):
+        res_questions.extend(Question.query.filter(filter).order_by(Question.id.desc()).offset(offset).limit(QUESTIONS_PER_PAGE).all())
+        totalQuestions = Question.query.filter(filter).count()
+    else:
+        res_questions.extend(Question.query.order_by(Question.id.desc()).offset(offset).limit(QUESTIONS_PER_PAGE).all())
+        totalQuestions = Question.query.count()
+
+    questions = mappingQuestions(res_questions)
+
+    return {
+        "questions": questions,
+        "total_questions": totalQuestions,
+        "current_category": currentCategory
+    }
+
+
 # get questions per page
 @routes.route("/questions")
 @cross_origin()
 def get_questions():
     try:
-        page = request.args.get("page", 1, type=int)
-        offset = (page - 1)*QUESTIONS_PER_PAGE
-        currentCategory = request.args.get("currentCategory", None)
-        if currentCategory == 'null':
-            currentCategory = None 
-        res_questions = Question.query.order_by(Question.id.desc()).offset(offset).limit(QUESTIONS_PER_PAGE).all()
-        totalQuestions = Question.query.count()
+        result = question_paginate(request, False)
         all_categories  = Category.query.all()
         categories = mappingCategories(all_categories)
-        questions = mappingQuestions(res_questions)
+
         return jsonify({
-        'questions': questions,
-        'total_questions': totalQuestions,
-        'categories': categories,
-        'current_category': currentCategory
+            'questions': result['questions'],
+            'total_questions': result['total_questions'],
+            'categories': categories,
+            'current_category': result['current_category']
         })
     except Exception as e:
-        unprocessable(e)
+        abort(404)
 
     
 # create new question
@@ -69,7 +89,7 @@ def add_question():
         )
 
     except Exception as e:
-        unprocessable(e)
+        abort(422)
 
 
 # get questions by category
@@ -77,18 +97,11 @@ def add_question():
 @cross_origin()
 def get_question_by_category(category_id):
     try:
-        page = request.args.get("page", 1, type=int)
-        offset = (page - 1)*QUESTIONS_PER_PAGE
-        currentCategory = request.args.get("currentCategory", None, type=str)
-        if currentCategory == 'null':
-            currentCategory = None 
-        res_questions = Question.query.order_by(Question.id.desc()).filter(category_id == Question.category_id).offset(offset).limit(QUESTIONS_PER_PAGE).all()
-        totalQuestions = Question.query.filter(category_id == Question.category_id).count()
-        questions = mappingQuestions(res_questions)
+        result = question_paginate(request, category_id == Question.category_id)
         return jsonify({
-        "questions": questions,
-        "total_questions": totalQuestions,
-        "current_category": currentCategory
+            "questions": result['questions'],
+            "total_questions": result['total_questions'],
+            "current_category": result['current_category']
         })
 
     except Exception as e:
@@ -99,20 +112,13 @@ def get_question_by_category(category_id):
 @cross_origin()
 def get_questions_by_search_term():
     try:
-        page = request.args.get("page", 1, type=int)
-        offset = (page - 1)*QUESTIONS_PER_PAGE
-        currentCategory = request.args.get("currentCategory", None, type=str)
-        if currentCategory == 'null':
-            currentCategory = None 
         search_term = request.get_json()['searchTerm']
         filterByQuestion = func.lower(Question.question).contains(func.lower(search_term))
-        res_questions =  Question.query.filter(filterByQuestion).order_by(Question.id.desc()).offset(offset).limit(QUESTIONS_PER_PAGE).all()
-        totalQuestions = Question.query.filter(filterByQuestion).count()
-        questions = mappingQuestions(res_questions)
+        result = question_paginate(request, filterByQuestion)
         return jsonify({
-            "questions": questions,
-            "total_questions": totalQuestions,
-            "current_category": currentCategory
+            "questions": result['questions'],
+            "total_questions": result['total_questions'],
+            "current_category": result['current_category']
         })
     except Exception as e:
         abort(422)
@@ -157,6 +163,8 @@ def get_questions_quizzes():
         questions = mappingQuestions(res_questions)
         result = [i for i in questions if i['id'] not in previous_questions]
 
+        if(len(result) == 0):
+            abort(404)
 
         return jsonify({
             "question": result[0] 
