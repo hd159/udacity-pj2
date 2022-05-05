@@ -13,6 +13,7 @@ class QuestionView extends Component {
       totalQuestions: 0,
       categories: {},
       currentCategory: null,
+      currentSearchTerm: ''
     };
   }
 
@@ -40,14 +41,47 @@ class QuestionView extends Component {
     });
   };
 
+  getAnsByCategory(id) {
+    $.ajax({
+      url: `/categories/${id}/questions?page=${this.state.page}&currentCategory=${this.state.categories[id]}`, //TODO: update request URL
+      type: 'GET',
+      success: (result) => {
+        this.setState({
+          questions: result.questions,
+          totalQuestions: result.total_questions,
+          currentCategory: result.current_category,
+        });
+        return;
+      },
+      error: (error) => {
+        alert('Unable to load questions. Please try your request again');
+        return;
+      },
+    });
+  }
+
+  resetCategory() {
+    this.setState({ page: 1, currentCategory: null, searchTerm: '' }, () => {
+      return this.getQuestions()
+    });
+  }
+
   selectPage(num) {
-    this.setState({ page: num }, () => this.getQuestions());
+    this.setState({ page: num }, () => {
+      if(this.state.currentSearchTerm) {
+        return this.submitSearch(this.state.currentSearchTerm)
+      }
+      if(this.state.currentCategory) {
+        const category_id = Object.entries(this.state.categories).find(([key, val]) => val === this.state.currentCategory)[0]
+        return this.getByCategory(category_id)
+      }
+      return this.getQuestions()
+    });
   }
 
   createPagination() {
     let pageNumbers = [];
     let maxPage = Math.ceil(this.state.totalQuestions / 2);
-    console.log(maxPage);
     for (let i = 1; i <= maxPage; i++) {
       pageNumbers.push(
         <span
@@ -65,28 +99,28 @@ class QuestionView extends Component {
   }
 
   getByCategory = (id) => {
-
-    $.ajax({
-      url: `/categories/${id}/questions?currentCategory=${this.state.categories[id]}`, //TODO: update request URL
-      type: 'GET',
-      success: (result) => {
-        this.setState({
-          questions: result.questions,
-          totalQuestions: result.total_questions,
-          currentCategory: result.current_category,
-        });
-        return;
-      },
-      error: (error) => {
-        alert('Unable to load questions. Please try your request again');
-        return;
-      },
-    });
+    this.setState( (state) => {
+      if(!this.state.currentCategory || this.state.currentCategory !== this.state.categories[id]) {
+        return {page: 1, currentSearchTerm: ''}
+      } else {
+        return {currentSearchTerm: ''}
+      }
+    }, () => this.getAnsByCategory(id))
   };
+
+  getBySearchTerm = (searchTerm) => {
+    this.setState( (state) => {
+      if(!this.state.currentSearchTerm || this.state.currentSearchTerm !== searchTerm) {
+        return {page: 1, currentSearchTerm: searchTerm, currentCategory: null}
+      } else {
+        return {currentCategory: null}
+      }
+    }, () => this.submitSearch(searchTerm))
+  }
 
   submitSearch = (searchTerm) => {
     $.ajax({
-      url: `/questions/search?currentCategory=${this.state.currentCategory}`, //TODO: update request URL
+      url: `/questions/search?page=${this.state.page}&currentCategory=${this.state.currentCategory}`, //TODO: update request URL
       type: 'POST',
       dataType: 'json',
       contentType: 'application/json',
@@ -117,7 +151,7 @@ class QuestionView extends Component {
           url: `/questions/${id}`, //TODO: update request URL
           type: 'DELETE',
           success: (result) => {
-            this.getQuestions();
+            this.resetCategory();
           },
           error: (error) => {
             alert('Unable to load questions. Please try your request again');
@@ -134,7 +168,7 @@ class QuestionView extends Component {
         <div className='categories-list'>
           <h2
             onClick={() => {
-              this.getQuestions();
+              this.resetCategory();
             }}
           >
             Categories
@@ -156,7 +190,7 @@ class QuestionView extends Component {
               </li>
             ))}
           </ul>
-          <Search submitSearch={this.submitSearch} />
+          <Search submitSearch={this.getBySearchTerm} />
         </div>
         <div className='questions-list'>
           <h2>Questions</h2>

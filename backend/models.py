@@ -50,9 +50,8 @@ class Question(db.Model):
     question = Column(String, unique = True)
     answer = Column(String)
     # category = Column(Integer)
-    category_id = db.Column(db.Integer, db.ForeignKey('categories.id', ondelete="cascade"),
+    category_id = Column(db.Integer, db.ForeignKey('categories.id', ondelete="cascade"),
                          nullable=False)
-    category = db.relationship('Category', cascade = "all,delete", backref=db.backref('category', lazy=True, passive_deletes=True))
     difficulty = Column(Integer)
 
     def __init__(self, question, answer, category_id, difficulty):

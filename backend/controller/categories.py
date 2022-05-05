@@ -13,7 +13,7 @@ def mappingCategories(categories):
 @routes.route('/categories')
 @cross_origin()
 def all_categories():
-    categories  = Category.query.all()
-    categories = mappingCategories(categories)
+    all_categories  = Category.query.all()
+    categories = mappingCategories(all_categories)
     return {'categories': categories}
 
